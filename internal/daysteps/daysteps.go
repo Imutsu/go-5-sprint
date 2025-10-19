@@ -1,6 +1,7 @@
 package daysteps
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -13,13 +14,21 @@ import (
 type DaySteps struct {
 	Steps    int
 	Duration time.Duration
-	Personal personaldata.Personal
+	personaldata.Personal // Встраивание Personal
 	Weight   float64
 	Height   float64
 }
 
 func (ds DaySteps) Print() {
-	panic("unimplemented")
+	fmt.Printf("Шаги: %d, Длительность: %v\n", ds.Steps, ds.Duration)
+	if ds.Weight > 0 {
+		fmt.Printf("Вес: %.2f\n", ds.Weight)
+	}
+	if ds.Height > 0 {
+		fmt.Printf("Рост: %.2f\n", ds.Height)
+	}
+	// Если у Personal есть метод Print, иначе можно удалить эту строку
+	// ds.Personal.Print()
 }
 
 func (ds *DaySteps) Parse(dataString string) error {
@@ -28,38 +37,34 @@ func (ds *DaySteps) Parse(dataString string) error {
 		return fmt.Errorf("invalid data format: expected 2 parts, got %d", len(parts))
 	}
 
-	// Строгая проверка пробелов - если есть пробелы внутри строки, это ошибка
-	stepsStr := parts[0]
-	if strings.TrimSpace(stepsStr) != stepsStr || strings.ContainsAny(stepsStr, " \t\n") {
-		return fmt.Errorf("invalid steps format")
+	rawSteps := parts[0]
+
+	if rawSteps != strings.TrimSpace(rawSteps) {
+		return fmt.Errorf("invalid steps format: contains leading/trailing spaces")
 	}
 
-	steps, err := strconv.Atoi(stepsStr)
+	steps, err := strconv.Atoi(rawSteps)
 	if err != nil {
-		return fmt.Errorf("invalid steps format: %v", err)
+		return fmt.Errorf("invalid steps format: %w", err)
 	}
 	if steps <= 0 {
-		return fmt.Errorf("steps must be positive")
+		return errors.New("steps must be positive")
 	}
 
-	// Строгая проверка пробелов для duration
-	durationStr := parts[1]
-	if strings.TrimSpace(durationStr) != durationStr || strings.ContainsAny(durationStr, " \t\n") {
-		return fmt.Errorf("invalid duration format")
-	}
-
+	durationStr := strings.TrimSpace(parts[1])
 	duration, err := time.ParseDuration(durationStr)
 	if err != nil {
-		return fmt.Errorf("invalid duration format: %v", err)
+		return fmt.Errorf("invalid duration format: %w", err)
 	}
 	if duration <= 0 {
-		return fmt.Errorf("duration must be positive")
+		return errors.New("duration must be positive")
 	}
 
 	ds.Steps = steps
 	ds.Duration = duration
 	return nil
 }
+
 
 func (ds DaySteps) ActionInfo() (string, error) {
 	weight := ds.Personal.Weight
@@ -73,11 +78,11 @@ func (ds DaySteps) ActionInfo() (string, error) {
 	}
 
 	if weight <= 0 || height <= 0 {
-		return "", fmt.Errorf("personal data is required")
+		return "", errors.New("personal data is required") // Используем errors.New когда не нужно форматирование
 	}
 
 	if ds.Steps <= 0 || ds.Duration <= 0 {
-		return "", fmt.Errorf("invalid steps or duration")
+		return "", errors.New("invalid steps or duration") // Используем errors.New когда не нужно форматирование
 	}
 
 	distance := spentenergy.Distance(ds.Steps, height)
